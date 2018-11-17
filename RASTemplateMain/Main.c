@@ -82,8 +82,7 @@ float decelerate(float slow){
 
 void initializeMotor() {
 	leftMotor = InitializeServoMotor(leftPWMPin, true);
-    rightMotor = InitializeServoMotor(rightPWMPin, true);
-    initializeSensors();
+  rightMotor = InitializeServoMotor(rightPWMPin, true);
 
 void initializeSensors() {
 	//light[0] = InitializeADC(PIN_D1); // light 0 sensor is broken
@@ -101,10 +100,9 @@ void initializePWM() {
 	rightEncoder = InitializeEncoder(PIN_C4, PIN_C5, false);
 	SetPin(leftDirPin, true); // left forward
 	SetPin(rightDirPin, false); // right backward
-	initializeSensors();
 }
 
-void initializePIDControl(tEncoder *encoder) {
+void initializePIDControl(struct PID pid, tEncoder *encoder) {
 	pid.goal = maxSpeed; // placeholder
 	pid.oldTotal = 0.2;
 	pid.oldEncoderVal = GetEncoder(encoder);
@@ -213,9 +211,10 @@ int main(void) {
     InitializeSystemTime();
     InitializeGPIO();
     initializePWM();
+    initializeSensors();
     // PID initialization
-    leftpid = initializePIDControl(leftEncoder);
-    rightpid = initializePIDControl(rightEncoder);
+    initializePIDControl(leftpid, leftEncoder);
+    initializePIDControl(rightpid, rightEncoder);
 
     while (1) {
 		lightReadings = getLightReadings();
