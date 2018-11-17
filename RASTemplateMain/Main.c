@@ -41,7 +41,7 @@ static float pErrCoeff = 0.5;
 static float iErrCoeff = 0.5;
 static float dErrCoeff = 0.5;
 
-static float maxSpeed = 0.25;
+static float maxSpeed = 0.000012; // Units of inches per microsecond
 
 
 void flick(void) {
@@ -133,7 +133,7 @@ bool checkBlack(int[] lightReadings) {
 
 void convertEncoderValToSpeed(signed long encoderVal, float deltaTime) {
 	float distance = encoderVal * (float) (1/59.32);
-	return distance / deltaTime;
+	return distance / deltaTime; //This speed is in units of inches per microsecond
 }
 
 void calculateSpeedOutput(struct PID pid, tEncoder *encoder) {
@@ -143,7 +143,7 @@ void calculateSpeedOutput(struct PID pid, tEncoder *encoder) {
 	// encoder values
 	signed long newEncoderVal = GetEncoder(*encoder);
 	signed long deltaEncoderVal = newEncoderVal - pid.oldEncoderVal;
-	float curSpeed = convertEncoderValToSpeed(deltaEncoderVal, deltaTime);
+	float curSpeed = convertEncoderValToSpeed(deltaEncoderVal, deltaTime); //speed in inches per microsecond
 	float pErr = pid.goal - curSpeed;
 	// integral and derivative
 	pid.integral += pErr * deltaTime;
@@ -201,6 +201,9 @@ void backoff() {
 
 // The 'main' function is the entry point of the program
 int main(void) {
+	//Wait 1 second for field to clear
+	Wait(1);
+
     // constants and variables
     int[] lightReadings;
     int distanceReading;
