@@ -3,6 +3,8 @@
 #include <RASLib/inc/time.h>
 #include <RASLib/inc/motor.h>
 #include <RASLib/inc/adc.h>
+#include <RASLib/inc/pwm.h>
+#include <RASLib/inc/encoder.h>
 #include <stdio.h>
 
 // Blink the LED to show we're on
@@ -18,13 +20,12 @@ void flick(void) {
     blink_on = !blink_on;
 }
 
-
 float accelerate(float fast){
     while(fast <= 1){			//change 1 to max speed of new motor
-	fast += .1;
-	SetMotor(leftMotor,fast*-1);
-	SetMotor(rightMotor,fast);
-	Wait(.25);			//change later
+		fast += .1;
+		SetMotor(leftMotor,fast*-1);
+		SetMotor(rightMotor,fast);
+		Wait(.25);			//change later
     }
     return fast;
 }
@@ -57,6 +58,16 @@ void ohShit(float color1,float color2,float speed){
 int main(void) {
     // Initialization code can go here
     float speed = 0;
+    InitializeSystemTime();
+    InitializeGPIO();
+    /*
+    leftPWM = InitializePWM(PIN_??, 1000); //1000 Hz PWM signal
+    rightPWM = InitializePWM(PIN_??, 2000); //2000 Hz PWM signal, keep signals separate (12 internal PWM controllers differentiated by freq)
+	leftEncoder = InitializeEncoder(PIN_XY, PIN_IJ, false); //true or false used to invert directionality
+	rightEncoder = Initialize Encoder(PIN_UV, PIN_KL, false);
+	bool leftDir = true;
+	bool rightDir = true; // True=forward, false=reverse
+    */
     leftMotor = InitializeServoMotor(PIN_B7, true);
     rightMotor = InitializeServoMotor(PIN_A4, true);
     //light[0] = InitializeADC(PIN_D1);
