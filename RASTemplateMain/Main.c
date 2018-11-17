@@ -23,7 +23,7 @@ tPIN leftDirPin = PIN_C6;
 tPIN rightDirPin = PIN_C7;
 
 // PID control struct
-struct Pid {
+struct PID {
 	float goal;
 	float total;
 	signed long oldEncoderVal;
@@ -107,7 +107,7 @@ void initializePWM() {
 void initializePIDControl(tEncoder *encoder) {
 	pid.goal = maxSpeed; // placeholder
 	pid.oldTotal = 0.2;
-	pid.oldEncoderVal = GetEncoder(*encoder);
+	pid.oldEncoderVal = GetEncoder(encoder);
 	pid.oldTime = GetTimeUS();
 	pid.oldPErr = 0.0;
 	pid.integral = 0.0;
@@ -141,7 +141,7 @@ void calculateSpeedOutput(struct PID pid, tEncoder *encoder) {
 	tTime newTime = GetTimeUS();
 	tTime deltaTime = (float)(newTime - pid.oldTime);
 	// encoder values
-	signed long newEncoderVal = GetEncoder(*encoder);
+	signed long newEncoderVal = GetEncoder(encoder);
 	signed long deltaEncoderVal = newEncoderVal - pid.oldEncoderVal;
 	float curSpeed = convertEncoderValToSpeed(deltaEncoderVal, deltaTime); //speed in inches per microsecond
 	float pErr = pid.goal - curSpeed;
@@ -171,7 +171,7 @@ void setPWMMotorSpeed() {
 }
 
 bool checkMotionless(tEncoder *encoder, struct PID pid) {
-	signed long curEncoderVal = GetEncoder(*encoder);
+	signed long curEncoderVal = GetEncoder(encoder);
 	return (curEncoderVal == pid.oldEncoderVal);
 }
 
