@@ -5,7 +5,6 @@
 #include <RASLib/inc/adc.h>
 #include <RASLib/inc/pwm.h>
 #include <RASLib/inc/encoder.h>
-#include <stdio.h>
 
 // Blink the LED to show we're on
 tBoolean blink_on = true;
@@ -18,105 +17,221 @@ static tPWM *rightPWM;
 static tEncoder *leftEncoder;
 static tEncoder *rightEncoder;
 
+tPIN leftPWMPin = PIN_B7;
+tPIN rightPWMPin = PIN_B6;
+tPIN leftDirPin = PIN_C1;
+tPIN rightDirPin = PIN_C2;
+
+// PID control struct
+struct Pid {
+	float goal;
+	float total;
+	signed long oldEncoderVal;
+	tTime oldTime;
+	float oldPErr;
+	float integral;
+	float derivative;
+};
+
+struct PID leftpid;
+struct PID rightpid;
+
+// estimates for PID control
+static float pErrCoeff = 0.5;
+static float iErrCoeff = 0.5;
+static float dErrCoeff = 0.5;
+
+static float maxSpeed = 0.25;
+
+
 void flick(void) {
     SetPin(PIN_F3, blink_on);
     blink_on = !blink_on;
 }
 
+// accelerate function for non-PWM motor
 float accelerate(float fast){
     while(fast <= 1){			//change 1 to max speed of new motor
-	fast += .1;
-	SetMotor(leftMotor,fast*-1);
-	SetMotor(rightMotor,fast);
-	Wait(.05);			//change later
+		fast += .1;
+		SetMotor(leftMotor,fast*-1);
+		SetMotor(rightMotor,fast);
+		Wait(.05);			//change later
     }
     return fast;
 }
 
+// decelerate function for non-PWM motor
 float decelerate(float slow){
-   if (slow > 0){ 
-	while(slow >= 0){			//change 1 to max speed of new motor
-		slow -= .1;
-		SetMotor(leftMotor,slow*-1);
-		SetMotor(rightMotor,slow);
-		Wait(.05);			//change later
+	if (slow > 0) { 
+		while(slow >= 0) {			//change 1 to max speed of new motor
+			slow -= .1;
+			SetMotor(leftMotor,slow*-1);
+			SetMotor(rightMotor,slow);
+			Wait(.05);			//change later
         }
-    }
-    else{
+    } else {
     	while(slow <= 0){			//change 1 to max speed of new motor
-		slow += .1;
-		SetMotor(leftMotor,slow);
-		SetMotor(rightMotor,slow*-1);
-		Wait(.05);			//change later
+			slow += .1;
+			SetMotor(leftMotor,slow);
+			SetMotor(rightMotor,slow*-1);
+			Wait(.05);			//change later
     	}
-    return slow;
+    	return slow;
     }
 }
 
+void initializeMotor() {
+	leftMotor = InitializeServoMotor(leftPWMPin, true);
+    rightMotor = InitializeServoMotor(rightPWMPin, true);
+    initializeSensors();
 
-// The 'main' function is the entry point of the program
-int main(void) {
-    // Initialization code can go here
-    float speed = 0;
-    InitializeSystemTime();
-    InitializeGPIO();
-    /*
-    leftPWM = InitializePWM(PIN_??, 1000); //1000 Hz PWM signal
-    rightPWM = InitializePWM(PIN_??, 2000); //2000 Hz PWM signal, keep signals separate (12 internal PWM controllers differentiated by freq)
-    leftEncoder = InitializeEncoder(PIN_XY, PIN_IJ, false); //true or false used to invert directionality
-    rightEncoder = Initialize Encoder(PIN_UV, PIN_KL, false);
-    bool leftDir = true;
-    bool rightDir = true; // True=forward, false=reverse
-    */  
-    leftMotor = InitializeServoMotor(PIN_B7, true);
-    rightMotor = InitializeServoMotor(PIN_B6, true);
-    //light[0] = InitializeADC(PIN_D1);
+void initializeSensors() {
+	//light[0] = InitializeADC(PIN_D1); // light 0 sensor is broken
     light[1] = InitializeADC(PIN_D2);
     light[2] = InitializeADC(PIN_D3);
     distance = InitializeADC(PIN_D0);
-    int BLACK = 1500;
-    
-	
+}
 
-    speed = accelerate(speed);
+void initializePWM() {
+	int startSignalLeft = 2000; // 2000Hz PWM signal
+	int startSignalRight = 2000; // 2000Hz PWM signal
+	leftPWM = InitializePWM(leftPWMPin, startSignalLeft);
+	rightPWM = InitializePWM(rightPWMPin, startSignalRight);
+	leftEncoder = InitializeEncoder(PIN_C6, PIN_C7, false);
+	rightEncoder = InitializeEncoder(PIN_C4, PINC_5, false);
+	SetPin(leftDirPin, true); // left forward
+	SetPin(rightDirPin, false); // right backward
+	initializeSensors();
+}
 
-    while(1){
-	//int lightReading1 = 4096*ADCRead(light[0]);
-	int lightReading2 = 4096*ADCRead(light[1]);
-	int lightReading3 = 4096*ADCRead(light[2]);
-	int distanceReading = 4096*ADCRead(distance);
-	//go straight on black
-	
-	
-	Printf("2: %d\n",distanceReading);
+void initializePIDControl(tEncoder *encoder) {
+	pid.goal = maxSpeed; // placeholder
+	pid.oldTotal = 0.2;
+	pid.oldEncoderVal = GetEncoder(*encoder);
+	pid.oldTime = GetTimeUS();
+	pid.oldPErr = 0.0;
+	pid.integral = 0.0;
+	pid.derivative = 0.0;
+}
 
-	if (lightReading2 >= BLACK && lightReading3 >= BLACK){
-		speed = accelerate(speed);
+int[] getLightReadings() {
+	int[3] lightReadings;
+	lightReadings[0] = 0; // broken
+	lightReadings[1] = 4069 * ADCRead(light[1]);
+	lightReadings[2] = 4069 * ADCRead(light[2]);
+	return lightReadings;
+}
+
+int getDistanceReading() {
+	return 4096*ADCRead(distance);
+}
+
+bool checkBlack(int[] lightReadings) {
+	int black = 1500;
+	return (lightReadings[1] >= black && lightReadings[2] >= black);
+}
+
+void convertEncoderValToSpeed(signed long encoderVal, float deltaTime) {
+	float distance = encoderVal * (float) (1/59.32);
+	return distance / deltaTime;
+}
+
+void calculateSpeedOutput(struct PID pid, tEncoder *encoder) {
+	// time
+	tTime newTime = GetTimeUS();
+	tTime deltaTime = (float)(newTime - pid.oldTime);
+	// encoder values
+	signed long newEncoderVal = GetEncoder(*encoder);
+	signed long deltaEncoderVal = newEncoderVal - pid.oldEncoderVal;
+	float curSpeed = convertEncoderValToSpeed(deltaEncoderVal, deltaTime);
+	float pErr = pid.goal - curSpeed;
+	// integral and derivative
+	pid.integral += pErr * deltaTime;
+	pid.derivative = (pid.oldPErr + pErr) / (deltaTime);
+	// calculate speed
+	pid.total += pErrCoeff*pErr + iErrCoeff*pid.integral + dErrCoeff*pid.derivative;
+
+	// reset things
+	pid.oldEncoderVal = newEncoderVal;
+	pid.oldTime = newTime;
+	pid.oldPErr = pErr;
+}
+
+void setPIDGoal(struct PID pid, float goal) {
+	pid.goal = goal;
+}
+
+void setPWMMotorSpeed() {
+	calculateSpeedOutput(leftpid, leftEncoder);
+	calculateSpeedOutput(rightpid, rightEncoder);
+	setPIN(leftDirPin, (leftpid.total > 0));
+	setPIN(rightDirPin, (rightpid.total > 0));
+	setPWM(leftPWMPin, abs(leftpid.total), 1);
+	setPWM(rightPWMPin, abs(rightpid.total), 1);
+}
+
+bool checkMotionless(tEncoder *encoder, struct PID pid) {
+	signed long curEncoderVal = GetEncoder(*encoder);
+	return (curEncoderVal == pid.oldEncoderVal);
+}
+
+void halt() {
+	setPIDGoal(leftpid, 0);
+	setPIDGoal(rightpid, 0);
+	// decrease speed until it's motionless
+	while (!checkMotionless(leftEncoder, leftpid) && !checkMotionless(rightEncoder, rightpid)) {
+		setPWMMotorSpeed();
 	}
-    	else if (lightReading2 < BLACK || lightReading3 < BLACK){
-		speed = decelerate(speed);
-		SetMotor(leftMotor,1);
-		SetMotor(rightMotor,-1);		//determine halt and reverse time
-		Wait(1);
-		CallEvery(flick,0,.5);
-		
-		while (distanceReading < 1000){
-		    SetMotor(leftMotor,-1);
-		    distanceReading = 4096*ADCRead(distance);
+}
+
+void backoff() {
+	setPIDGoal(leftpid, (-1)*maxSpeed);
+	setPIDGoal(rightpid, (-1)*maxSpeed);
+
+	signed long oldEncoderLVal = leftpid.oldEncoderVal;
+	signed long oldEncoderRVal = rightpid.oldEncoderVal;
+	signed long deltaL;
+	signed long deltaR;
+	while (deltaL > -240 && deltaR > -240) {
+		deltaL = GetEncoder(leftEncoder) - oldEncoderLVal;
+		deltaR = GetEncoder(rightEncoder) - oldEncoderRVal;
+		setPWMMotorSpeed();
+	}
+}
+
+// The 'main' function is the entry point of the program
+int main(void) {
+    // constants and variables
+    int[] lightReadings;
+    int distanceReading;
+    int minDistance = 1000;
+
+    // initialization
+    InitializeSystemTime();
+    InitializeGPIO();
+    initializePWM();
+    // PID initialization
+    leftpid = initializePIDControl(leftEncoder);
+    rightpid = initializePIDControl(rightEncoder);
+
+    while (1) {
+		lightReadings = getLightReadings();
+		distanceReading = getDistanceReading();
+		// Printf("Distance: %d\n", distanceReading)
+
+		if (checkBlack(lightReadings)) {
+			setPIDGoal(leftpid, maxSpeed);
+			setPIDGoal(rightpid, maxSpeed);
+			setPWMMotorSpeed();
+		} else { // we see white
+			halt();
+			// back off a bit
+			backoff();
+			// detect and face object
+			setPIDGoal(leftpid, -1); // reverse in place
+			setPIDGoal(rightpid, 1);
+			while (distanceReading < minDistance) {
+				setPWMMotorSpeed();
+			}
 		}
-		    
-		    Printf("2: %d\n",distanceReading);
-	}
-
-
-	//search for robot
-
-
-
-
-	SetMotor(leftMotor,-1);
-	SetMotor(rightMotor,1);
-
-
-    }
 }
