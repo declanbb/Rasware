@@ -17,10 +17,10 @@ static tPWM *rightPWM;
 static tEncoder *leftEncoder;
 static tEncoder *rightEncoder;
 
-tPIN leftPWMPin = PIN_B7;
-tPIN rightPWMPin = PIN_B6;
-tPIN leftDirPin = PIN_C6;
-tPIN rightDirPin = PIN_C7;
+tPin leftPWMPin = PIN_B7;
+tPin rightPWMPin = PIN_B6;
+tPin leftDirPin = PIN_C6;
+tPin rightDirPin = PIN_C7;
 
 // PID control struct
 struct PID {
