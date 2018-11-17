@@ -8,7 +8,7 @@
 # much magic.
 ###############################################################################
 
-UDEV_PATH="/dev/lm4f"
+UDEV_PATH="/dev/ttyACM0"
 CACHE_NAME=".detect-board-cache"
 
 set -x
