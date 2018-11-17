@@ -5,6 +5,7 @@
 #include <RASLib/inc/adc.h>
 #include <RASLib/inc/pwm.h>
 #include <RASLib/inc/encoder.h>
+#include <stdbool.h>
 
 // Blink the LED to show we're on
 tBoolean blink_on = true;
