@@ -19,8 +19,8 @@ static tEncoder *rightEncoder;
 
 tPIN leftPWMPin = PIN_B7;
 tPIN rightPWMPin = PIN_B6;
-tPIN leftDirPin = PIN_C1;
-tPIN rightDirPin = PIN_C2;
+tPIN leftDirPin = PIN_C6;
+tPIN rightDirPin = PIN_C7;
 
 // PID control struct
 struct Pid {
@@ -97,8 +97,8 @@ void initializePWM() {
 	int startSignalRight = 2000; // 2000Hz PWM signal
 	leftPWM = InitializePWM(leftPWMPin, startSignalLeft);
 	rightPWM = InitializePWM(rightPWMPin, startSignalRight);
-	leftEncoder = InitializeEncoder(PIN_C6, PIN_C7, false);
-	rightEncoder = InitializeEncoder(PIN_C4, PINC_5, false);
+	leftEncoder = InitializeEncoder(PIN_F2, PIN_F3, false);
+	rightEncoder = InitializeEncoder(PIN_C4, PIN_C5, false);
 	SetPin(leftDirPin, true); // left forward
 	SetPin(rightDirPin, false); // right backward
 	initializeSensors();
