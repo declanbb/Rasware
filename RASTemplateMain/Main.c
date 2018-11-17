@@ -131,7 +131,7 @@ bool checkBlack(int lightReadings[]) {
 	return (lightReadings[1] >= black && lightReadings[2] >= black);
 }
 
-void convertEncoderValToSpeed(signed long encoderVal, float deltaTime) {
+float convertEncoderValToSpeed(signed long encoderVal, float deltaTime) {
 	float distance = encoderVal * (float) (1/59.32);
 	return distance / deltaTime; //This speed is in units of inches per microsecond
 }
