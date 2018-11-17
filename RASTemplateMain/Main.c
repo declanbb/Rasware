@@ -114,8 +114,8 @@ void initializePIDControl(tEncoder *encoder) {
 	pid.derivative = 0.0;
 }
 
-int[] getLightReadings() {
-	int[3] lightReadings;
+int* getLightReadings() {
+	int lightReadings[3];
 	lightReadings[0] = 0; // broken
 	lightReadings[1] = 4069 * ADCRead(light[1]);
 	lightReadings[2] = 4069 * ADCRead(light[2]);
@@ -126,7 +126,7 @@ int getDistanceReading() {
 	return 4096*ADCRead(distance);
 }
 
-bool checkBlack(int[] lightReadings) {
+bool checkBlack(int lightReadings[]) {
 	int black = 1500;
 	return (lightReadings[1] >= black && lightReadings[2] >= black);
 }
@@ -205,7 +205,7 @@ int main(void) {
 	Wait(1);
 
     // constants and variables
-    int[] lightReadings;
+    int lightReadings[3];
     int distanceReading;
     int minDistance = 1000;
 
